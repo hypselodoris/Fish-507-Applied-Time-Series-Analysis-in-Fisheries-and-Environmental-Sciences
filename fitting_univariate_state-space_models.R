@@ -93,4 +93,174 @@ mod.nile.3 = list(
 ## Fit model with MARSS():
 kem.3 = MARSS(dat, model=mod.nile.3)
 
+## NOTE: StructTS function also fits the stochastic level model:
+fit.sts = StructTS(dat, type="level")
+fit.sts
+## The estimates from StructTS() will be different (though similar) from MARSS()  ##
+## because StructTS() uses x1 = y1, that is the hidden state at t = 1 is fixed to ##
+## be the data at t = 1. That is fine if you have a long data set, but would be   ##
+## disastrous for the short data sets typical in fisheries and ecology.
+## StructTS() is much, much faster for long time series. The example in ?StructTS ##
+## is pretty much instantaneous with StructTS() but takes minutes with the EM     ##
+## algorithm that is the default in MARSS(). With the BFGS algo- rithm, it is     ##
+## much closer to StructTS():
+trees <- window(treering, start = 0)
+fitts = StructTS(trees, type = "level")
+fitem = MARSS(as.vector(trees),mod.nile.2)
+fitbf = MARSS(as.vector(trees),mod.nile.2, method="BFGS")
 
+## COMPARE MODELS WITH AIC AND MODEL WEIGHTS
+## To get the AIC or AICc values for a model fit from a MARSS fit, use fit$AIC or ##
+## fit$AICc. The log-likelihood is in fit$logLik and the number of estimated      ##
+## parameters in fit$num.params. For fits from other functions, try AIC(fit) or   ##
+## look at the function documentation.                                            ##
+## Put the AICc values Nile models together:
+nile.aic = c(kem.0$AICc, kem.1$AICc, kem.2$AICc, kem.3$AICc)
+## Calculate the AICc minus the minus AICc in our model set and compute the model ##
+## weights. ∆AIC is the AIC values minus the minimum AIC value in your model set. ##
+delAIC= nile.aic-min(nile.aic)
+relLik=exp(-0.5*delAIC)
+aicweight=relLik/sum(relLik)
+## Create a model weights table:
+aic.table=data.frame(
+  AICc=nile.aic,
+  delAIC=delAIC,
+  relLik=relLik,
+  weight=aicweight)
+rownames(aic.table)=c("flat level","linear trend", "stoc level", "stoc level w drift")
+## Print the table with digits limited to specified amount using round():
+round(aic.table, digits = 3)
+## NOTE: When comparing models within a set of models, at least one of the models must fit the data "reasonably well". ##
+## Otherwise, you will be choosing the "less-bad" model among bad models.                                              ##
+
+## BASIC DIAGNOSTICS
+## 1) With ANY statistical analysis: compare residuals to assumed error structure...they should correspond. ##
+## We have two types of errors in a univariate state-space model: process errors, the wt , and observation  ##
+## errors, the vt. They should not have a temporal trend. To get the residuals from most types of fits in R,##
+## you can use residuals(fit). MARSS calls the vt, model residuals, and the wt state residuals. We can plot ##
+## these using the following code:
+par(mfrow=c(3,2))
+resids=residuals(kem.0)
+plot(resids$model.residuals[1,],
+     ylab="model residual", xlab="", main="flat level")
+abline(h=0)
+plot(resids$state.residuals[1,],
+     ylab="state residual", xlab="", main="flat level")
+abline(h=0)
+resids=residuals(kem.1)
+plot(resids$model.residuals[1,],
+     ylab="model residual", xlab="", main="linear trend")
+abline(h=0)
+plot(resids$state.residuals[1,],
+     ylab="state residual", xlab="", main="linear trend")
+abline(h=0)
+resids=residuals(kem.2)
+plot(resids$model.residuals[1,],
+     ylab="model residual", xlab="", main="stoc level")
+abline(h=0)
+plot(resids$state.residuals[1,],
+     ylab="state residual", xlab="", main="stoc level")
+abline(h=0)
+## Check the autocorrelation of residuals. THEY SHOULD NOT BE AUTOCORRELATED IN TIME. ##
+## No need to check autocorrelation for flat level or linear trends because for those ##
+## models wt =0/                                                                      ##
+## Calculate acf's:
+par(mfrow=c(2,2))
+resids=residuals(kem.0)
+acf(resids$model.residuals[1,], main="flat level v(t)")
+resids=residuals(kem.1)
+acf(resids$model.residuals[1,], main="linear trend v(t)")
+resids=residuals(kem.2)
+acf(resids$model.residuals[1,], main="stoc level v(t)")
+acf(resids$state.residuals[1,], main="stoc level w(t)")
+## The stochastic level model looks the best in that its model residuals (the vt) are ##
+## fine but the state model still has problems. Clearly the state is not a simple     ##
+## random walk. This is not surprising. The Aswan Low Dam was completed in 1902 and   ##
+## changed the mean flow. The Aswan High Dam was completed in 1970 and also affected  ##
+## the flow.
+
+## FITTING A UNIVARIATE AR-1 STATE-SPACE MODEL WITH JAGS*
+## Write the model for JAGS to a file (filename in model.loc):
+model.loc="ss_model.txt"
+jagsscript = cat("
+   model {
+   # priors on parameters
+   mu ~ dnorm(Y1, 1/(Y1*100)); # normal mean = 0, sd = 1/sqrt(0.01)
+   tau.q ~ dgamma(0.001,0.001); # This is inverse gamma
+   sd.q <- 1/sqrt(tau.q); # sd is treated as derived parameter
+   tau.r ~ dgamma(0.001,0.001); # This is inverse gamma
+   sd.r <- 1/sqrt(tau.r); # sd is treated as derived parameter
+   u ~ dnorm(0, 0.01);
+   # Because init X is specified at t=0
+   X0 <- mu
+   X[1] ~ dnorm(X0+u,tau.q);
+   Y[1] ~ dnorm(X[1], tau.r);
+   for(i in 2:N) {
+   predX[i] <- X[i-1]+u;
+   X[i] ~ dnorm(predX[i],tau.q); # Process variation
+   Y[i] ~ dnorm(X[i], tau.r); # Observation variation
+   }
+   }
+   ",file=model.loc)
+## Specify data and any other input that the JAGS code needs:
+## We need:
+# dat
+# number of time steps 
+# parameters we want to monitor
+## Note, that the hidden state is a parameter in the Bayesian context (but not in the maximum likelihood context).  ##
+jags.data = list("Y"=dat, "N"=length(dat), Y1=dat[1])
+jags.params=c("sd.q","sd.r","X","mu", "u")
+## Fit the model:
+mod_ss = jags(jags.data, parameters.to.save=jags.params,
+  model.file=model.loc, n.chains = 3,
+  n.burnin=5000, n.thin=1, n.iter=10000, DIC=TRUE)
+## Show the posteriors with the MLEs from MARSS on top:
+attach.jags(mod_ss)
+par(mfrow=c(2,2))
+hist(mu)
+abline(v=coef(kem.3)$x0, col="red")
+hist(u)
+abline(v=coef(kem.3)$U, col="red")
+hist(log(sd.q^2))
+abline(v=log(coef(kem.3)$Q), col="red")
+hist(log(sd.r^2))
+abline(v=log(coef(kem.3)$R), col="red")
+detach.jags()
+## Plot the estimated states:
+## Custom model output plot function:
+plotModelOutput = function(jagsmodel, Y) {
+  attach.jags(jagsmodel)
+  x = seq(1,length(Y))
+  XPred = cbind(apply(X,2,quantile,0.025), apply(X,2,mean), apply(X,2,quantile,0.975)) 
+  ylims = c(min(c(Y,XPred), na.rm=TRUE), max(c(Y,XPred), na.rm=TRUE))
+  plot(Y, col="white",ylim=ylims, xlab="",ylab="State predictions")
+  polygon(c(x,rev(x)), c(XPred[,1], rev(XPred[,3])), col="grey70",border=NA)
+  lines(XPred[,2])
+  points(Y) 
+}
+
+plotModelOutput(mod_ss, dat)
+lines(kem.3$states[1,], col="red")
+lines(1.96*kem.3$states.se[1,]+kem.3$states[1,], col="red", lty=2)
+lines(-1.96*kem.3$states.se[1,]+kem.3$states[1,], col="red", lty=2)
+title("State estimate and data from\nJAGS (black) versus MARSS (red)")
+## NOTE: Bayesian fit along with 95% credible inter- vals (black and grey)  ##
+## MLE states and 95% condidence intervals in red.                          ##
+
+## A SIMPLE RANDOM WALK MODEL OF ANIMAL MOVEMENT
+## A random walk model of movement with drift (directional movement) but no correlation:  ##
+# x1,t = x1,t−1 +u1 +w1,t, w1,t ∼ N(0,σ21)
+# x2,t = x2,t−1 +u2 +w2,t, w2,t ∼ N(0,σ2)
+## Where x1,t is the location at time t along one axis (here, longitude) and x2,t is for  ##
+## another, generally orthogonal, axis (in here, latitude). The parameter u1 is the rate  ##
+## of longitudinal movement and u2 is the rate of latitudinal movement.                   ##
+## Add errors to observations of location:
+# y1,t = x1,t + v1,t , v1,t ∼ N(0, η21 ) 
+# y2,t = x2,t + v2,t , v2,t ∼ N(0, η2 )
+## This model is comprised of two separate univariate state-space models. Note that y1    ##
+## depends only on x1 and y2 depends only on x2. There are no actual interactions between ##
+## these two univariate models. However, we can write the model down in the form of a     ##
+## multivariate model using diagonal variance-covariance matrices and a diagonal design   ##
+## (Z) matrix. Because the variance-covariance matrices and Z are diagonal, the x1:y1 and ##
+## x2:y2 processes will be independent as intended.                                       ##
+## Equations written as a MARSS model (in matrix form): See pdf of class materials        ##
