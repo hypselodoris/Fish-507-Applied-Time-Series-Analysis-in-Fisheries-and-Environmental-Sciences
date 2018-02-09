@@ -264,3 +264,48 @@ title("State estimate and data from\nJAGS (black) versus MARSS (red)")
 ## (Z) matrix. Because the variance-covariance matrices and Z are diagonal, the x1:y1 and ##
 ## x2:y2 processes will be independent as intended.                                       ##
 ## Equations written as a MARSS model (in matrix form): See pdf of class materials        ##
+
+## PROBLEMS ##
+## 1.1 Write the equations fo reach of these models:ARIMA(0,0,0),ARIMA(0,1,0),            ##
+## ARIMA(1,0,0), ARIMA(0,0,1), ARIMA(1,0,1). Read the help file for Arima (forecast       ##
+## package) if you are fuzzy on the arima notation.
+
+## 1.2 The MARSS package includes a data set of sharp-tailed grouse in Wash- ington.      ##
+## Load the data to use as follows:                                                       ##
+library(MARSS)
+dat=log(grouse[,2])
+## Consider these two models for the data:                                                ##
+## Model 1 random walk with no drift observed with no error                               ##
+## Model 2 random walk with drift observed with no error                                  ##
+## Written as a univariate state-space model, model 1 is                                  ##
+# xt = xt−1 +wt where wt ∼ N(0,q) x0 = a
+# yt = xt
+## Model 2 is almost identical except with u added:
+# xt = xt−1 +u+wt where wt ∼ N(0,q) x0 = a
+# yt = xt
+## y is the log grouse count in year t.
+## a) Plot the data. The year is in column 1 of grouse.
+plot(dat,
+     ylab="Log-Count", xlab="Year", main="Log-Grouse Data")
+## b) Fit each model using MARSS().
+# The MARSS package fits multivariate auto-regressive models of this form:
+#   xt = Bxt−1 +u+wt where wt ∼ N(0,Q)
+#   yt = Zxt +a+vt where vt ∼ N(0,R) 
+#   x0 = μ
+# NOTE: MATRIX FORM! To use MARSS() you must convert a state-space model into the matrix form required by MARSS().
+# Define following matrix terms:
+# B,U,Q,Z,A,R,x0
+# Set which time step x is initialized: tinitx
+# Important: in a state-space model, y is always the data and x is something estimated from the data.
+## Compute variance of log-grouse data to use for Q input to MARSS() mod.list
+r=var(dat)
+## Model 1 as univariate state-space model:
+# xt = xt−1 +wt where wt ∼ N(0,q) x0 = a
+# yt = xt
+## The model list for Model 1:
+mod.grouse.1 = list(
+  B=matrix(1), U=matrix(0), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix(r),
+  x0=matrix("mu"), tinitx=0)
+## Fit model with MARSS():
+kem.3 = MARSS(dat, model=mod.nile.3)
