@@ -389,4 +389,13 @@ grouse.marss.fit.2$AICc - grouse.marss.fit.1$AICc
 ## OUTPUT:
 # [1] -2.567739
 ## NOTE: Similar, but not identical results.
+## When using auto.arima, it will fit AR-1 models of the following form (notice the b): ##
+## xt = bxt−1 +wt. auto.arima refers this model xt = xt−1 +wt, which is also AR-1 but   ##
+## with b = 1, as ARIMA(0,1,0). This says that the first difference of the data (that’s ##
+## the 1 in the middle) is a ARMA(0,0) process (the 0s in the 1st and 3rd spots). So    ##
+## ARIMA(0,1,0) means this: xt −xt−1 =wt.
 
+## 3) Create a random walk with drift time series using the following command:          ##
+## dat=cumsum(rnorm(100,0.1,1))
+## NOTE: n = 100, mean = 0.1, sd = 1
+## a) Write out the equation for that random walk as a univariate state-space model.    ##
