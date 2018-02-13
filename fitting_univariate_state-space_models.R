@@ -297,15 +297,96 @@ plot(dat,
 # B,U,Q,Z,A,R,x0
 # Set which time step x is initialized: tinitx
 # Important: in a state-space model, y is always the data and x is something estimated from the data.
-## Compute variance of log-grouse data to use for Q input to MARSS() mod.list
-r=var(dat)
+
 ## Model 1 as univariate state-space model:
-# xt = xt−1 +wt where wt ∼ N(0,q) x0 = a
+# xt = xt−1 +wt where wt ∼ N(0,q) 
+# x0 = a
 # yt = xt
 ## The model list for Model 1:
 mod.grouse.1 = list(
   B=matrix(1), U=matrix(0), Q=matrix("q"),
-  Z=matrix(1), A=matrix(0), R=matrix(r),
-  x0=matrix("mu"), tinitx=0)
+  Z=matrix(1), A=matrix(0), R=matrix(0),
+  x0=matrix("a"), tinitx=0)
 ## Fit model with MARSS():
-kem.3 = MARSS(dat, model=mod.nile.3)
+grouse.marss.fit.1 = MARSS(dat, model = mod.grouse.1)
+
+## Model 2 as univariate state-space model:
+# xt = xt−1 +u+wt where wt ∼ N(0,q) 
+# x0 = a
+# yt = xt
+mod.grouse.2 = list(
+  B=matrix(1), U=matrix("u"), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix(0),
+  x0=matrix("a"), tinitx=0)
+## Fit model with MARSS():
+grouse.marss.fit.2 = MARSS(dat, model = mod.grouse.2)
+
+## COMPARE MODELS WITH AIC AND MODEL WEIGHTS
+## To get the AIC or AICc values for a model fit from a MARSS fit, use fit$AIC or ##
+## fit$AICc. The log-likelihood is in fit$logLik and the number of estimated      ##
+## parameters in fit$num.params. For fits from other functions, try AIC(fit) or   ##
+## look at the function documentation.                                            ##
+## Put the AICc values Nile models together:
+grouse.marss.aic = c(grouse.marss.fit.1$AICc, grouse.marss.fit.2$AICc)
+## Calculate the AICc minus the minus AICc in our model set and compute the model ##
+## weights. ∆AIC is the AIC values minus the minimum AIC value in your model set. ##
+delAIC= grouse.marss.aic-min(grouse.marss.aic)
+relLik=exp(-0.5*delAIC)
+aicweight=relLik/sum(relLik)
+## Create a model weights table:
+aic.marss.table=data.frame(
+  AICc=grouse.marss.aic,
+  delAIC=delAIC,
+  relLik=relLik,
+  weight=aicweight)
+rownames(aic.marss.table)=c("model 1","model 2")
+## Print the table with digits limited to specified amount using round():
+round(aic.marss.table, digits = 3)
+## Output:
+#           AICc delAIC relLik weight
+# model 1  0.634  2.568  0.277  0.217
+# model 2 -1.934  0.000  1.000  0.783
+## c) Which one appears better supported given AICc?
+# Answer: "model 2" appears better supported.
+
+## d) Load the forecast package. Use ?auto.arima to learn what it does. ##
+## Then use auto.arima(dat) to fit the data. Next run auto.arima on the ##
+## data with trace=TRUE to see all the ARIMA models it compared. Note,  ##
+## ARIMA(0,1,0) is a random walk with b=1. ARIMA(0,1,0) with drift      ##
+## would be a random walk (b=1) with drift (with u).
+## OUTPUT:
+# auto.arima(dat, trace = TRUE)
+# 
+# ARIMA(2,1,2) with drift         : Inf
+# ARIMA(0,1,0) with drift         : -3.116841
+# ARIMA(1,1,0) with drift         : -1.006099
+# ARIMA(0,1,1) with drift         : Inf
+# ARIMA(0,1,0)                    : -0.5520726
+# ARIMA(1,1,1) with drift         : Inf
+# 
+# Best model: ARIMA(0,1,0) with drift         
+# 
+# Series: dat 
+# ARIMA(0,1,0) with drift 
+# 
+# Coefficients:
+#   drift
+# -0.0909
+# s.e.   0.0394
+# 
+# sigma^2 estimated as 0.0467:  log likelihood=3.79
+# AIC=-3.58   AICc=-3.12   BIC=-0.84
+## NOTE: It picked model 2 as the best among those tested. ”ARIMA(0,1,0) with drift” is model 2.
+
+## e) Is the difference in the AICc values between a random walk with ##
+## and without drift comparable between MARSS() and auto.arima()?
+grouse.arima.fit.1.arima = Arima(dat, order=c(0,1,0))
+grouse.arima.fit.2.arima = Arima(dat, order=c(0,1,0), include.drift=TRUE)
+grouse.arima.fit.2.arima$aicc - grouse.arima.fit.1.arima$aicc
+## OUTPUT:
+# [1] -2.564768
+grouse.marss.fit.2$AICc - grouse.marss.fit.1$AICc
+## OUTPUT:
+# [1] -2.567739
+## NOTE: Similar, but not identical results.
+
