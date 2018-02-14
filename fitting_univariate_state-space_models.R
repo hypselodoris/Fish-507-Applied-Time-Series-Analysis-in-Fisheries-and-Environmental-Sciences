@@ -399,3 +399,151 @@ grouse.marss.fit.2$AICc - grouse.marss.fit.1$AICc
 ## dat=cumsum(rnorm(100,0.1,1))
 ## NOTE: n = 100, mean = 0.1, sd = 1
 ## a) Write out the equation for that random walk as a univariate state-space model.    ##
+# xt = xt−1 +u+wt,wt ∼ N(0,q)
+# x0 =μ or x1 =y1 (1.1)
+# yt = xt
+# where u=0.1 and q=1.
+
+## b) What is the order of the x part of the model written as ARIMA(p, d, q)?           ##
+# From question 1, you should be able to deduce it is ARIMA(0,1,0) but if you said      ##
+# ARIMA(1,0,0) with b=1, that’s ok. That’s not how Arima() writesxt=xt−1+u+wt but it is ##
+# correct.
+
+## c) Fit that model using Arima() in the forecast package. You’ll need to specify the  ##
+## order and include.drift term.                                                        ##
+arima.fit.3.d = Arima(dat, order=c(0,1,0), include.drift=TRUE)
+
+## d) Fit that model with MARSS().                                                      ##
+mod.3.d = list(
+  B=matrix(1), U=matrix("u"), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix(0),
+  x0=matrix("μ"), tinitx=0)
+## Fit model with MARSS():
+marss.fit.3.d = MARSS(dat, model = mod.3.d)
+
+## e) How are the two estimates different?
+coef(marss.fit.3.d, type="vector")
+c(coef(arima.fit.3.d), s2=arima.fit.3.d$sigma2)
+## Now fit the first-differenced data:
+diff.dat=diff(dat)
+
+## f) If xt denotes a time series. What is the first difference of x? What is the     ##
+## second difference?                                                                 ##
+# First difference diff(x) is xt −xt−1.
+# Second difference is diff(diff(x)) or (xt −xt−1)−(xt−1 −xt−2).
+
+## g) What is the x model for diff.dat?
+# diff(x) = (xt −xt−1) = u+wt
+
+## h) Fit diff.dat using Arima().You’ll need to change order and include.mean.        ##
+fit.diff.Arima=Arima(diff.dat, order=c(0,0,0), include.mean=TRUE)
+fit.diff.arima=arima(diff.dat, order=c(0,0,0), include.mean=TRUE)
+
+## i) Fit that model with MARSS()
+# data (y) is now diff.dat and state-space model is
+# xt = u+wt,wt ∼ N(0,q) x0 = 0
+# yt = xt
+## It doesn’t matter what x0 is; it does not appear in the model, but it is important to use x0      ##
+## instead of x1 to match arima().                                                                   ##
+mod.diff.dat = list(
+  B=matrix(0), U=matrix("u"), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix(0),
+  x0=matrix(0), tinitx=0)
+fit.diff.marss = MARSS(diff.dat, model = mod.diff.dat)
+
+## Note, we can also fit with lm():                                                                 ##                                                  
+fit.diff.lm = lm(diff.dat~1)
+## Here are the parameter estimates:                                                                ## 
+rbind(
+  marss.diff=coef(fit.diff.marss, type="vector"), 
+  arima.diff=c(coef(fit.diff.arima), s2=fit.diff.arima$sigma2), 
+  Arima.diff=c(coef(fit.diff.Arima), s2=(98/99)*fit.diff.Arima$sigma2), 
+  lm.diff=c(coef(fit.diff.lm), s2=(98/99)*summary(fit.diff.lm)$sigma^2)
+)
+## OUTPUT:                                                                                          ##
+#                   U.u      Q.q
+# marss.diff 0.03824377 1.001234
+# arima.diff 0.03824377 1.001234
+# Arima.diff 0.03824377 1.001234
+# lm.diff    0.03824377 1.001234
+## They are all the same except the variances reported by Arima() and lm() have to be multiplied by ##
+## 98/99 to be the same as MARSS and arima because the former are reporting the unbiased estimates  ##
+## and the latter are reporting the straight (biased) maximum-likelihood estimates.                 ##
+
+## 4) Arima() will also fit what it calls an ‘AR-1 with drift’. An AR-1 with drift is NOT this model: ##
+# xt = bxt−1 +u+wt where wt ∼ N(0,q)    <- Equation 1.4
+## In the population dynamics literature, this equation is called the Gompertz model and is a type  ##
+## of density-dependent population model.                                                           ##
+## a) Write R code to simulate Equation 1.4. Make b less than 1 and greater                         ##
+## than 0. Set u and x0 to whatever you want. You can use a for loop.                               ##
+# set up my parameter values:
+b=.8; u=2; x0=10; q=0.1
+nsim=1000
+# set up my holder for x:
+x=rep(NA, nsim)
+# first time step:
+x[1]=b*x0+u+rnorm(1,0,sqrt(q))
+# use for loop for all time steps after t=1
+for(t in 2:nsim) x[t]=b*x[t-1]+u+rnorm(1,0,sqrt(q))
+
+## b) Plot the trajectories and show that this model does not “drift” upward or downward. It        ##
+## fluctuates about a mean value.                                                                   ##
+plot(x, type="l",xlab="", ylab="x")
+
+## c) Hold b constant and change u. How do the trajectories change?                                 ##
+# Change u, add 1:
+u2=u+1
+# Set up new holder for x2:
+x2=rep(NA, nsim)
+# First time step for x2:
+x2[1]=b*x0+u2+rnorm(1,0,sqrt(q))
+# Use for loop to iterate over all time steps after t=1
+for(t in 2:nsim) x2[t]=b*x2[t-1]+u2+rnorm(1,0,sqrt(q))
+
+# Change u, subtract 1:
+u3=u-1
+# Set up new holder for x3:
+x3=rep(NA, nsim)
+# First time step for x3:
+x3[1]=b*x0+u3+rnorm(1,0,sqrt(q))
+# Use for loop to iterate over all time steps after t=1
+for(t in 2:nsim) x3[t]=b*x3[t-1]+u3+rnorm(1,0,sqrt(q))
+
+# Set up plot device: 3 rows, 1 column
+par(mfrow=c(3,1))
+plot(x, type="l", main="X", xlab="", ylab="x")
+plot(x2, type="l", main="X2", xlab="", ylab="x")
+plot(x3, type="l", main="X3", xlab="", ylab="x")
+# Answer: Means are shifted up and down respectively. 
+
+## d) Hold u constant and change b. Make sure to use a b close to 1 and   ##
+## another close to 0. How do the trajectories change?                    ##
+# set up my parameter values:
+# Set b2 close to 1:
+b2=.9
+# Set up new holder for x4:
+x4=rep(NA, nsim)
+# First time step for x4:
+x4[1]=b2*x0+u+rnorm(1,0,sqrt(q))
+# Use for loop to iterate over all time steps after t=1
+for(t in 2:nsim) x4[t]=b2*x4[t-1]+u+rnorm(1,0,sqrt(q))
+
+# Set b3 close to 0:
+b3=.1
+# Set up new holder for x5:
+x5=rep(NA, nsim)
+# First time step for x5:
+x5[1]=b3*x0+u+rnorm(1,0,sqrt(q))
+# Use for loop to iterate over all time steps after t=1
+for(t in 2:nsim) x5[t]=b3*x5[t-1]+u+rnorm(1,0,sqrt(q))
+
+# Plot trajectories of original and x4, x5:
+range(x)
+range(x4)
+range(x5)
+
+# plot(x, type="l", ylim=range(1,23), xlab="", ylab="x")
+plot(x4, type="l", ylim=range(1,23), col="black")
+lines(x5, col="red")
+legend('topright', legend = c("b=0.9", "b=0.1"), col = c("black", "red"), lty =1)
+# The one with smaller b has less auto-regression and is ‘tighter’ (explores less of a range of the y axis).
