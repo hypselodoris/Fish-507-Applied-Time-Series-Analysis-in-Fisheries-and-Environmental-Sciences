@@ -658,6 +658,15 @@ sum(x[,10]<=x.threshold)/n.trajectories
 
 ## 6) Fit the following models to the graywhales data using MARSS(). Assume b=1.                            ##
 ## Model 1 Process error only model with drift:
+# xt = xt−1 +u+wt where wt ∼ N(0,q)
+# yt = xt
+# x0 = a
+mod.list.1 = list(
+  B=matrix(1), U=matrix("u"), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix(0),
+  x0=matrix("mu"), tinitx=0
+)
+fit.marss.1 = MARSS(dat, model = mod.list.1)
 
 ## Model 2 Process error only model without drift:
 
