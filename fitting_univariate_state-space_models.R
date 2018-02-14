@@ -547,3 +547,120 @@ plot(x4, type="l", ylim=range(1,23), col="black")
 lines(x5, col="red")
 legend('topright', legend = c("b=0.9", "b=0.1"), col = c("black", "red"), lty =1)
 # The one with smaller b has less auto-regression and is ‘tighter’ (explores less of a range of the y axis).
+
+## e) Do 2 simulations each with the same wt . In one simulation, set u = 1 and in the other u = 2. ##
+## For both simulations, set x1 = u/(1−b). You can set b to whatever you want as long as 0 < b < 1. ## 
+## Plot the 2 trajectories on the same plot. What is different?                                     ##
+# Trajectory 1:
+nsim = 1000
+b = 0.8
+u = 1
+x0 = u/(1-b)
+q = 0.1
+err = rnorm(nsim, 0, q)
+# Set up variable to hold simulated data:
+x = rep(NA, nsim)
+# First time step for x:
+x[1] = b * x0 + u + err[1]
+# Use for loop to iterate over all time steps after t=1
+for(t in 2:nsim) x[t] = b * x[t-1] + u + err[t]
+
+# Trajectory 2:
+u = 2
+# Set up variable to hold simulated data:
+x2 = rep(NA, nsim)
+# First time step for x:
+x2[1]=b*x0+u+err[1]
+# Use for loop to iterate over all time steps after t=1
+for(t in 2:nsim) x2[t]=b*x2[t-1]+u+err[t]
+
+# Plot both simulations:
+plot(x, type="l", ylim=c(3.5, 12.5), col="black")
+lines(x2, col="red")
+legend("topright", legend = c("u=1", "u=2"), col = c("black", "red"), lty = 1)
+## NOTE: Trajectories 1 and 2 are identical except that the mean of trajectory 2 is shifted up.                 ##
+## NOTE: We will fit what Arima calls “AR-1 with drift” models in the chapter on MARSS models with covariates.  ##
+
+## 5) The MARSS package includes a data set of gray whales. Load the data to use as follows:
+library(MARSS)
+dat=log(graywhales[,2])
+## Fit a random walk with drift model observed with error to the data:
+# xt = xt−1 +u+wt where wt ∼ N(0,q)
+# yt = xt +vt where vt ∼ N(0,r) 
+# x0 = a
+## y is the whale count in year t. x is interpreted as the ’true’ unknown population size that we are trying  ##
+## to estimate.                                                                                               ##
+## a) Fit this model with MARSS()                                                                             ##
+mod.whale = list(
+  B=matrix(1), U=matrix("u"), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix("r"),
+  x0=matrix("a"), tinitx=0
+)
+whale.marss.fit = MARSS(dat, model = mod.whale)
+## OUTPUT:
+# Success! abstol and log-log tests passed at 16 iterations.
+# Alert: conv.test.slope.tol is 0.5.
+# Test with smaller values (<0.1) to ensure convergence.
+# 
+# MARSS fit is
+# Estimation method: kem 
+# Convergence test: conv.test.slope.tol = 0.5, abstol = 0.001
+# Estimation converged in 16 iterations. 
+# Log-likelihood: 4.064946 
+# AIC: -0.129891   AICc: 1.975372   
+# 
+# Estimate
+# R.r    0.0141
+# U.u    0.0564
+# Q.q    0.0136
+# x0.a   7.9532
+# 
+# Standard errors have not been calculated. 
+# Use MARSSparamCIs to compute CIs and bias estimates.
+
+## b) Plot the estimated x as a line with the actual counts added as points.x is in whale.marss.fit$states.   ##
+## It is a matrix, which plot will not like so you will need to change it to a vector using as.vector() or    ##
+## whale.marss.fit$states[1,]
+x = as.vector(whale.marss.fit$states)
+plot(dat, type = "p", main = "Log-Gray Whales", ylab = "Log-counts", xlab = "", col = "black")
+lines(x, col = "red")
+# Plot with years labelled:
+par(mar=c(2,2,2,2))
+plot(graywhales[,1], whale.marss.fit$states[1,], type="l",xlab="", ylab="log count") 
+points(graywhales[,1], dat)
+
+
+## c) Simulate 1000 sample trajectories using the estimated u and q starting at the estimated x in 1997. You  ##
+## can do this with a couple for loops or write something terse with cumsum and apply.                        ##
+n.trajectories = 1000
+n.forward = 10
+b = 0.8
+u = as.vector(coef(whale.marss.fit)$U)
+x0 = whale.marss.fit$states[1,39]
+q = as.vector(coef(whale.marss.fit)$Q)
+# Set up matrix to hold simulated data. Each row contains 1 trajectory, each column is a time step foreward:
+x = matrix(NA, n.trajectories, n.forward)
+# Set up variable to hold simulated data for all trajectories:
+# First time step for x:
+x[,1]=x0+u+rnorm(n.trajectories,0,sqrt(q))
+# Iterate over number of years foreward, populate data matrix:
+for(t in 2:n.forward) x[,t]=x[,t-1]+u+rnorm(n.trajectories,0,sqrt(q))
+
+## d) Using these simulated trajectories, what is your estimated probability of reaching 50,000 graywhales  ##
+## in 2007.
+# I just want the fraction of simulations that were 50,000 or above in 2007
+x.threshold = log(50000)
+sum(x[,10]<=x.threshold)/n.trajectories
+
+## e) What kind of uncertainty does that estimate NOT include?                                              ##
+# By using the point estimates of u, q and x0, we are not including the uncertainty in those estimates in   ##
+# our forecasts.
+
+## 6) Fit the following models to the graywhales data using MARSS(). Assume b=1.                            ##
+## Model 1 Process error only model with drift:
+
+## Model 2 Process error only model without drift:
+
+## Model 3 Process error with drift and observation error with observation error variance fixed = 0.05:
+
+## Model 4 Process error with drift and observation error with observation error variance estimated:
