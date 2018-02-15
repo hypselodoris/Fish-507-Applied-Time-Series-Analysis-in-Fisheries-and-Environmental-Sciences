@@ -669,7 +669,222 @@ mod.list.1 = list(
 fit.marss.1 = MARSS(dat, model = mod.list.1)
 
 ## Model 2 Process error only model without drift:
+# xt = xt−1 +wt where wt ∼ N(0,q)
+# yt = xt
+# x0 = mu
+mod.list.2 = list(
+  B=matrix(1), U=matrix(0), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix(0),
+  x0=matrix("mu"), tinitx=0
+)
+fit.marss.2 = MARSS(dat, model = mod.list.2)
 
 ## Model 3 Process error with drift and observation error with observation error variance fixed = 0.05:
+# xt = xt−1 +u+wt where wt ∼ N(0,q)
+# yt = xt +vt where vt ~ N(0,0.05)
+# x0 = mu
+mod.list.3 = list(
+  B=matrix(1), U=matrix("u"), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix(0.05),
+  x0=matrix("mu"), tinitx=0
+)
+fit.marss.3 = MARSS(dat, model = mod.list.3)
 
 ## Model 4 Process error with drift and observation error with observation error variance estimated:
+# xt = xt−1 +u+wt where wt ∼ N(0,q)
+# yt = xt +vt where vt ~ N(0,r)
+# x0 = mu
+mod.list.4 = list(
+  B=matrix(1), U=matrix("u"), Q=matrix("q"),
+  Z=matrix(1), A=matrix(0), R=matrix("r"),
+  x0=matrix("mu"), tinitx=0
+)
+fit.marss.4 = MARSS(dat, model = mod.list.4)
+
+## a) Compute the AICc’s for each model and likelihood or deviance (-2 * log likelihood). Where to find ##
+## these? Try names(fit). logLik() is the standard R function to return log-likelihood from fits.       ##
+fit.aic = c(fit.marss.1$AICc, fit.marss.2$AICc, fit.marss.3$AICc, fit.marss.4$AICc)
+fit.logLik = c(fit.marss.1$logLik, fit.marss.2$logLik, fit.marss.3$logLik, fit.marss.4$logLik)
+## Create a table with AICc and logLik:
+aic.table=data.frame(
+  AICc=fit.aic,
+  logLik=fit.logLik
+  )
+rownames(aic.table)=c("Model 1","Model 2", "Model 3", "Model 4")
+## Print the table with digits limited to specified amount using round():
+round(aic.table, digits = 3)
+
+## b) Calculate a table of ∆AICc values and AICc weights.                                               ##
+# Calculate ∆AICc values and AICc weights:
+delAIC= fit.aic-min(fit.aic)
+relLik=exp(-0.5*delAIC)
+aicweight=relLik/sum(relLik)
+# Build a table of results:
+aic.table=data.frame(
+  AICc=fit.aic,
+  logLik=fit.logLik,
+  delAICc=delAIC,
+  relLik=relLik,
+  weight=aicweight
+)
+rownames(aic.table)=c("Model 1","Model 2", "Model 3", "Model 4")
+## Print the table with digits limited to specified amount using round():
+round(aic.table, digits = 3)
+
+## c) Show the acf of the model and state residuals for the best model. You will need a vector of the   ##
+## residuals to do this. If fit is the fit from a fit call like fit = MARSS(dat), you get the residuals ##
+## using this code:
+# residuals(fit)$state.residuals[1,]
+# residuals(fit)$model.residuals[1,]
+## Do the acf’s suggest any problems?                                                                   ##
+## NOTE: Check the autocorrelation of residuals. THEY SHOULD NOT BE AUTOCORRELATED IN TIME.             ##
+model.resids=residuals(fit.marss.4)$model.residuals[1,]
+state.resids=residuals(fit.marss.4)$state.residuals[1,]
+
+par(mfrow=c(2,1))
+acf(model.resids, main="model residuals")
+acf(state.resids, main="state residuals")
+# 1 significant point at lag=1, but not concerning because it could be expected by chance alone.
+
+## 7) Evaluate the predictive accuracy of forecasts using the forecast package using the ’airmiles’     ##
+## dataset. Load the data to use as follows:                                                            ##
+library(forecast)
+dat=log(airmiles)
+n=length(dat)
+# This will prepare the training data and set aside the last 3 data points for validation.:
+training.dat = dat[1:(n-3)]
+test.dat = dat[(n-2):n]
+
+## a) Fit the following four models using Arima():ARIMA(0,0,0),ARIMA(1,0,0), ARIMA(0,0,1), ARIMA(1,0,1).
+# ARIMA(0,0,0) :
+arima.fit.1 = Arima(training.dat, order = c(0,0,0))
+# ARIMA(1,0,0) :
+arima.fit.2 = Arima(training.dat, order = c(1,0,0))
+# ARIMA(0,0,1) :
+arima.fit.3 = Arima(training.dat, order = c(0,0,1))
+# ARIMA(1,0,1) :
+arima.fit.4 = Arima(training.dat, order = c(1,0,1))
+
+## b) Use forecast() to make 3 step ahead forecasts from each.
+forecast.1 = forecast(arima.fit.1, h = 3)
+forecast.2 = forecast(arima.fit.2, h = 3)
+forecast.3 = forecast(arima.fit.3, h = 3)
+forecast.4 = forecast(arima.fit.4, h = 3)
+
+## c) Calculate the MASE statistic for each using the accuracy function in the forecast package.  ##
+## Type ?accuracy to learn how to use this function.                                              ##
+accuracy(forecast.1, test.dat)
+# The MASE statistic we want is in the Test set row and MASE column.
+# Build a numeric vector with results of interest:
+MASE.stats = c(
+  accuracy(forecast.1, test.dat)["Test set", "MASE"],
+  accuracy(forecast.2, test.dat)["Test set", "MASE"],
+  accuracy(forecast.3, test.dat)["Test set", "MASE"],
+  accuracy(forecast.4, test.dat)["Test set", "MASE"]
+)
+
+## d) Present results in a table:
+model.names = c("ARIMA(0,0,0)", "ARIMA(1,0,0)", "ARIMA(0,0,1)", "ARIMA(1,0,1)")
+MASE.table=data.frame(
+  model.name=model.names,
+  MASE=MASE.stats
+)
+# Render table:
+MASE.table
+
+## e) Which model is best supported based on the MASE statistic?
+# The ARIMA(1,0,1) has the lowest MASE (Mean Absolute Scaled Error) statistic, and is therefore ##
+# the best. NOTE:  the AR component strongly improves predictions                               ##
+
+## 8) The WhaleNet Archive of STOP Data has movement data on loggerhead turtles on the east     ##
+## coast of the US from ARGOS tags. The MARSS package loggerheadNoisy dataset is lat/lot data   ##
+## on eight individuals, however we have corrupted this data severely by adding random errors   ##
+## in order to create a “bad tag” problem (very noisy). Use head(loggerheadNoisy) to get an     ##
+## idea of the data. Then load the data on one turtle, MaryLee. MARSS needs time across the     ##
+## columns so you need to use transpose the data:
+turtlename="MaryLee"
+dat = loggerheadNoisy[which(loggerheadNoisy$turtle==turtlename),5:6]
+dat = t(dat)
+
+## a) Plot MaryLee’s locations (as a line not dots). Put the latitude lo- cations on the y-axis ##
+## and the longitude on the y-axis. You can use rownames(dat) to see which is in which row. You ##
+## can just use plot() for the homework. But if you want, you can look at the MARSS Manual      ##
+## chapter on animal movement to see how to plot the turtle locations on a map using the maps   ##
+## package.
+#load the map package; you have to install it first
+library(maps)
+# Read in our noisy data (no missing values)
+pdat = loggerheadNoisy #for plotting
+turtlename="MaryLee"
+par(mai = c(0,0,0,0),mfrow=c(1,1))
+map('state', region = c('florida', 'georgia', 'south carolina', 'north carolina',
+  'virginia', 'delaware','new jersey','maryland'),xlim=c(-85,-70))
+points(pdat$lon[which(pdat$turtle==turtlename)], pdat$lat[which(pdat$turtle==turtlename)],
+  col="blue",pch=21, cex=0.7)
+lines(pdat$lon[which(pdat$turtle==turtlename)], pdat$lat[which(pdat$turtle==turtlename)],
+  col="blue")
+
+## b) Analyze the data with a state-space model (movement observed with error) using:            ##
+fit0 = MARSS(dat)
+# OUTPUT:
+# Success! algorithm run for 15 iterations. abstol and log-log tests passed.
+# Alert: conv.test.slope.tol is 0.5.
+# Test with smaller values (<0.1) to ensure convergence.
+# 
+# MARSS fit is
+# Estimation method: kem 
+# Convergence test: conv.test.slope.tol = 0.5, abstol = 0.001
+# Algorithm ran 15 (=minit) iterations and convergence was reached. 
+# Log-likelihood: -126.2077 
+# AIC: 266.4154   AICc: 267.0901   
+# 
+# Estimate
+# R.diag            0.0948  # Rdiag is the observation error variance.
+# U.X.lon           0.0753  # Ulon is the average velocity in N-S direction.
+# U.X.lat           0.0726  # Ulat is the average velocity in E-W direction.
+# Q.(X.lon,X.lon)   0.1024  # Qlon: movement error variance in N-S direction.
+# Q.(X.lat,X.lat)   0.0915  # Qlat: movement error variance in E-W direction.
+# x0.X.lon        -81.2401  # x0lon: estimated longitudinal position at t=0.
+# x0.X.lat         31.7818  # x0lat: estimated latitudinal position at t=0.
+# 
+# Standard errors have not been calculated. 
+# Use MARSSparamCIs to compute CIs and bias estimates.
+
+## c) What assumption did the default MARSS model make about observation error and process error? ##
+# The observation errors in the lat and lon direction are independent but have identical variance.##
+# The movement errors are independent (not corre- lated) and allowed to have different variances. ##
+# So the model doesn’t allow a average NE movement; that would require correlation in the movement##
+# errors. It allows that turtles tend to move faster N-S (along the coast) than E-W (out to sea). ##
+
+## d) Does MaryLee move faster in the latitude direction versus longitude direction?              ##
+# No. The estimated u’s in the lat and lon direction are similar.
+
+## e) Add MaryLee’s estimated ”true”positions to your plot of her locations. You can use          ##
+## lines(x, y, col="red") (with x and y replaced with your x and y data). The true position is    ##
+## the ”state”. This is in the states element of an output from MARSS fit0$states.                ##
+lines(fit0$states["X.lon",], fit0$states["X.lat",],
+    col="red")
+
+## f) Compare the following models for these data. Movement in the lat/lon direction is (1)       ##
+## independent but the variance is the same, (2) is correlated and lat/lon variances are different##
+## , and (3) is correlated and the lat/lon variances are the same. You only need to change Q      ##
+## specification. Your MARSS call will now look like the following with ... replaced with your Q  ##
+## specification: fit1 = MARSS(dat, list(Q=...))
+fit1 = MARSS(dat, model = list(Q="diagonal and equal"))
+fit2 = MARSS(dat, model = list(Q="unconstrained"))
+fit3 = MARSS(dat, model = list(Q="equalvarcov"))
+
+c(fit0$AICc,fit1$AICc, fit2$AICc, fit3$AICc)
+
+## g) Plot your state residuals (true location residuals). What are the problems? Discuss in      ##
+## reference to your plot of the location data.                                                   ##
+resids.3.lon = residuals(fit3)$state.residuals[1,]
+resids.3.lat = residuals(fit3)$state.residuals[2,]
+par(mfrow=c(2,2),mar=c(3,5,3,5))
+plot(resids.3.lon, xlab="") ; abline(h=0)
+acf(resids.3.lon)
+plot(resids.3.lat, xlab="") ; abline(h=0)
+acf(resids.3.lat)
+## NOTE: There is a period in the middle of the track where the model does not describe the       ##
+## movement well. We can see in the plot that the turtle has a long northward movement in the     ##
+## middle of the track.
