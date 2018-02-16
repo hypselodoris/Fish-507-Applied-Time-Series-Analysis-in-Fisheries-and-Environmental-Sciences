@@ -270,3 +270,153 @@ diag(1:4) #put 1 to 4 on diagonal of 4x4 matrix
 # [2,]    0    2    0    0
 # [3,]    0    0    3    0
 # [4,]    0    0    0    4
+
+## The diag() function can also be used to replace elements on the diagonal of a matrix:
+A=matrix(3, 3, 3)
+diag(A)=1
+A
+## OUTPUT:
+#       [,1] [,2] [,3]
+# [1,]    1    3    3
+# [2,]    3    1    3
+# [3,]    3    3    1
+
+A=matrix(3, 3, 3)
+diag(A)=1:3
+A
+## OUTPUT:
+#       [,1] [,2] [,3]
+# [1,]    1    3    3
+# [2,]    3    2    3
+# [3,]    3    3    3
+
+A=matrix(3, 3, 4)
+diag(A[1:3,2:4])=1
+A
+## OUTPUT:
+#       [,1] [,2] [,3] [,4]
+# [1,]    3    1    3    3
+# [2,]    3    3    1    3
+# [3,]    3    3    3    1
+
+## The diag function is also used to get the diagonal of a matrix:
+A=matrix(1:9, 3, 3)
+diag(A)
+## OUTPUT:
+# [1] 1 5 9
+
+## The identity matrix is a special kind of diagonal matrix with 1s on the diagonal.  ##
+## It is denoted I. I3 would mean a 3×3 diagonal matrix. A identity matrix has the    ##
+## property that AI=A and IA=A so it is like a 1.
+A=matrix(1:9, 3, 3)
+I=diag(3) #shortcut for 3x3 identity matrix
+A%*%I
+## OUTPUT:
+#       [,1] [,2] [,3]
+# [1,]    1    4    7
+# [2,]    2    5    8
+# [3,]    3    6    9
+
+## 1.6 Taking the inverse of a square matrix                                          ##
+## The inverse of a matrix is denoted A−1. You can think of the inverse of a matrix   ##
+## like 1/a. 1/a×a = 1. A−1A = AA−1 = I. The inverse of a matrix does not always      ##
+## exist; for one it has to be square. We’ll be using inverses for variance-covariance##
+## matrices and by definition (of a variance-covariance matrix), the inverse of those ##
+## exist. In R, there are a couple way common ways to take the inverse of a variance- ##
+## covariance matrix (or something with the same properties). solve is the most common##
+## probably:
+A=diag(3,3)+matrix(1,3,3)
+invA=solve(A)
+invA%*%A
+## OUTPUT:
+#               [,1]          [,2] [,3]
+# [1,] 1.000000e+00 -6.938894e-18    0
+# [2,] 2.081668e-17  1.000000e+00    0
+# [3,] 0.000000e+00  0.000000e+00    1
+
+A%*%invA
+## OUTPUT:
+#               [,1]          [,2] [,3]
+# [1,] 1.000000e+00 -6.938894e-18    0
+# [2,] 2.081668e-17  1.000000e+00    0
+# [3,] 0.000000e+00  0.000000e+00    1
+
+## Another option is to use chol2inv which uses a Cholesky decomposition:
+## NOTE: The Cholesky decomposition is a handy way to keep your variance-covariance ##
+## matrices valid when doing a parameter search. Don’t search over the raw variance-##
+## covariance matrix. Search over a matrix where the lower triangle is 0, that is   ##
+## what a Cholesky decomposition looks like. Let’s call it B. Your variance-        ##
+## covariance matrix is t(B)%*%B.                                                   ##
+## NOTE: For the purpose of this course, solve is fine.                             ##
+A=diag(3,3)+matrix(1,3,3)
+invA=chol2inv(chol(A))
+invA%*%A
+## OUTPUT:
+#               [,1]         [,2]          [,3]
+# [1,]  1.000000e+00 6.938894e-17  0.000000e+00
+# [2,]  2.081668e-17 1.000000e+00 -2.775558e-17
+# [3,] -5.551115e-17 0.000000e+00  1.000000e+00
+A%*%invA
+## OUTPUT:
+#               [,1]          [,2]          [,3]
+# [1,] 1.000000e+00  2.081668e-17 -5.551115e-17
+# [2,] 6.938894e-17  1.000000e+00  0.000000e+00
+# [3,] 0.000000e+00 -2.775558e-17  1.000000e+00
+
+## PROBLEMS ##
+## 1.1 Build a 4×3 matrix with the numbers 1 through 4 in each row. ##
+A=matrix(1:4,nrow = 4, ncol = 3)
+
+## 1.2 Extract the elements in the 1st and 2nd rows and 1st and 2nd columns ##
+## (you’ll have a 2×2 matrix). Show the R code that will do this.           ##
+B=A[1:2, 1:2]
+B
+## OUTPUT:
+#       [,1] [,2]
+# [1,]    1    1
+# [2,]    2    2
+
+## 1.3 Build a 4×3 matrix with the numbers 1 through 12 by row (meaning the ##
+## first row will have the numbers 1 through 4 in it).                      ##
+C=matrix(1:12, 4, 3, byrow = TRUE)
+
+## 1.4 Extract the 3rd row of the above. Show R code to do this where you   ##
+## end up with a vector and how to do this where you end up with a 1×3      ##
+## matrix.
+# Vector result:
+D=C[3,]
+# Matrix result:
+D=C[3,,drop=FALSE]
+
+## 1.5 Build a 4×3 matrix that is all 1s except a 2 in the (2,3) element    ##
+## (2nd row, 3rd column).
+A = matrix(1,4,3)
+A[2,3]=2
+
+## 1.6 Take the transpose of the above.                                     ##
+t(A)
+
+## 1.7 Build a 4 × 4 diagonal matrix with 1 through 4 on the diagonal.      ##
+A = diag(1:4)
+
+## 1.8 Build a 5×5 identity matrix.
+I=diag(5)
+
+## 1.9 Replace the diagonal in the above matrix with 2 (the number 2).      ##
+diag(I)=2
+
+## 1.10 Build a matrix with 2 on the diagonal and 1s on the offdiagonals.   ##
+A = matrix(1,2,2)
+A[1,1]=2
+A[2,2]=2
+# More elegant solution:
+A = diag(1,4)+1
+
+## 1.11 Take the inverse of the above.
+invA = solve(A)
+
+## 1.12 Build a 3×3 matrix with the first 9 letters of the alphabet. First  ##
+## column should be “a”, “b”, “c”. letters[1:9] gives you these letters.
+A = matrix(letters[1:9],3,3)
+
+## 1.13 Replace the diagonal of this matrix with the word “cat”.            ##
