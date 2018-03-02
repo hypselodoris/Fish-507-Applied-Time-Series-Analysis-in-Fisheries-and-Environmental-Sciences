@@ -420,3 +420,85 @@ invA = solve(A)
 A = matrix(letters[1:9],3,3)
 
 ## 1.13 Replace the diagonal of this matrix with the word “cat”.            ##
+diag(A) <- c("c", "a", "t")
+
+## 1.14 Build a 4×3 matrix with all 1s. Multiply by a 3×4 matrix with all 2s##
+A = matrix(1,4,3)
+B = matrix(2,3,4)
+A%*%B
+
+## 1.15 If A is a 4×3 matrix, is AA possible? Is AA> possible? Show how to ##
+## write AA> in R.
+A = matrix(2,4,3)
+A%*%A # This throws error: Error in A %*% A : non-conformable arguments
+A%*%t(A) # This works
+
+## 1.16 In the equation, AB = C, let A =                                  ##
+#       [,1] [,2] [,3]
+# [1,]    1    4    7
+# [2,]    2    5    8
+# [3,]    3    6    9
+## Build a B matrix with only 1s and 0s such that the values on the       ##
+## diagonal of C are 1, 8, 6 (in that order).Show your R code for A, B    ##
+## and AB.
+A = matrix(1:9,3,3)
+B = matrix(0,3,3)
+B[1,1] = 1
+B[3,2] = 1
+B[2,3] = 1
+C = A%*%B
+diag(C)
+
+## 1.17 Same A matrix as above and same equation AB = C. Build a 3 × 3 B  ##
+## matrix such that C = 2A. So C =
+# h
+# 2 8 14
+# 4 10 16
+# 6 12 18
+# i
+# . Hint, B is diagonal.
+A = matrix(1:9,3,3)
+C = 2*A
+B = diag(2,3)
+A%*%B
+
+## 1.18 Same A and AB = C equation. Build a B matrix to compute the row   ##
+## sums of A. So the first ‘row sum’ would be 1+4+7, the sum of all       ##
+## elements in row 1 of A. C will be 
+# h
+# 12
+# 15
+# 18
+# i
+# , the row sums of A. Hint, B is a column matrix
+# (1 column).
+A = matrix(1:9,3,3)
+B = matrix(1,3,1)
+A%*%B
+
+## 1.19 Same A matrix as above but now equation BA = C. Build a B       ##
+## matrix to compute the column sums of A. So the first ‘column sum’    ##
+## would be 1+2+3. C will be a 1×3 matrix.
+A = matrix(1:9,3,3)
+B = matrix(1,1,3)
+B%*%A
+
+## 1.20 Let AB = C equation but A =
+# h
+# 2 1 1
+# 1 2 1
+# 1 1 2 i
+# (so A=diag(3)+1). Build a B matrix
+# such that C =
+#   h
+# 3
+# 3
+# 3
+# i
+# . Hint, you need to use the inverse of A.
+A = diag(3)+1
+C=matrix(3,3,1)
+#AB=C
+#B=inv(A)%*%C
+B=solve(A)%*%C
+B
